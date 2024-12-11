@@ -1,4 +1,8 @@
+#!/usr/bin/env python
+
 import os
+import sys
+import argparse
 import zipfile
 import geopandas as gdp
 from pykml import parser
@@ -30,9 +34,23 @@ def kmz_to_geojson(kmz_file_path, geojson_file_path):
   os.system("rm -rf temp_kml")
   print(f"GeoJSON file saved at {geojson_file_path}")
 
-def main():
-  kmz_to_geojson("feudi_21256.kmz", "output.geojson")
+def parse_command_line(argv):
+  parser = argparse.ArgumentParser(description="Conversion from compressed format kmz to geoJSON")
+  parser.add_argument('-i','--input_name', help='Name of the input file in kmz format', required=True)
+  parser.add_argument('-o','--output_name', help='Name of the output file in geoJSON format', nargs='?', default="output.geojson", type=str)
+  return vars(parser.parse_args(argv))
+
+def main(argv=None):
+  if argv == None:
+    argv = sys.argv[1:]
+  args = parse_command_line(argv)
+  print(args)
+  input_file_name = args['input_name']
+  output_file_name = args['output_name']
+  #kmz_to_geojson("feudi_21256.kmz", "output.geojson")
+  kmz_to_geojson(input_file_name, output_file_name)
 
 
 if __name__== "__main__":
-  main()
+  status = main()
+  sys.exit(status)
