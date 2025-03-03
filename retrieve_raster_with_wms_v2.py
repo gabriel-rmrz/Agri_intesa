@@ -10,6 +10,7 @@ import argparse
 import numpy as np
 import matplotlib.pyplot as plt
 import geopandas as gpd
+import pandas as pd
 import cv2
 from pathlib import Path
 from shapely.geometry import shape
@@ -26,46 +27,6 @@ def parse_command_line(argv):
   #parser.add_argument('-o','--output_name', help='Name of the output file in geoJSON format', nargs='?', default="output.geojson", type=str)
   return vars(parser.parse_args(argv))
 
-def transform_coord(point_in, crs_in, crs_out=CRS.from_epsg(3857), res=0.5):
-  """
-  Calculate image size for a WMS request based on bounding box and max resolution
-  """
-  # Create CRS object
-  crs_obj = CRS.from_string(crs_in)
-
-  # Check if the CRS uses degrees (geogrephic) or meters (projected)
-  if crs_obj.is_geographic:
-    # Transfrom bounding box to a projected CRS for meters
-    transformer = Transformer.from_crs(crs_obj, crs_out, always_xy=True)
-
-    point_out = transformer.transform(point_in[0], point_in[1])
-  else:
-    # Bounding box is already in projected coordinates (meters)
-    point_out = point_in
-
-  return point_out
-
-def get_pixel_bounds_from_multipol(multipol, crs, res=0.5):
-  points_box = [transform_coord(point, crs) for point in [ (multipol.bounds[0], multipol.bounds[1]), (multipol.bounds[2], multipol.bounds[3])]]
-
-  points = [ transform_coord(point, crs) for polygon in multipol.geoms for point in polygon.exterior.coords[:-1]]
-  point_ref = points_box[0]
-  pixel_coord = [ ((int(point[0]/res)-int(point_ref[0]/res)), (int(points_box[1][1]/res) - int(point_ref[1]/res)) - (int(point[1]/res) - int(point_ref[1]/res))) for point in points]
-  print(points_box)
-  return pixel_coord
-
-def get_pixel_coord_from_pol(pol, crs, res=0.5):
-  print("-----POL-----")
-  print(pol)
-  points = [ transform_coord(point, crs)  for point in pol]
-  point_ref = [np.min(points[:,0]), np.min(points[:,1])]
-  print("-----points-----")
-  print(points)
-  print("-----point_ref-----")
-  print(point_ref)
-  pixel_coord = [ ((int(point[0]/res)-int(point_ref[0]/res)), (int(points_box[1][1]/res) - int(point_ref[1]/res)) - (int(point[1]/res) - int(point_ref[1]/res))) for point in points]
-  print(points_box)
-  return pixel_coord
 
 def calculate_image_size(bounds, max_resolution, crs):
   """
@@ -97,6 +58,10 @@ def calculate_image_size(bounds, max_resolution, crs):
 def get_image(source_url_wms, source_crs, source_res, province_name, foglio, particella, catasto_bbox, catasto_polygon_pixel, catasto_crs='EPSG:6706', catasto_res=0.02, plot_output=True):
   catasto_bounds = [catasto_bbox[0][0], catasto_bbox[0][1], catasto_bbox[2][0], catasto_bbox[2][1] ]
   source_polygon_pixel = (catasto_res*catasto_polygon_pixel/source_res).astype(int)
+  print("----catasto_bounds----")
+  print(catasto_bounds)
+  print("----catasto_bbox----")
+  print(catasto_bbox)
   print("----source_polygon_pixel----")
   print(source_polygon_pixel)
 
@@ -106,6 +71,9 @@ def get_image(source_url_wms, source_crs, source_res, province_name, foglio, par
   source_bounds_max_x, source_bounds_max_y = transformer.transform(catasto_bounds[2], catasto_bounds[3]) 
   #TODO: source bounding box in source_crs
   source_bounds = [source_bounds_min_x, source_bounds_min_y, source_bounds_max_x, source_bounds_max_y]
+  print("----source_bounds----")
+  print(source_bounds)
+  exit()
 
   im_size = [np.max(source_polygon_pixel[:,0]), np.max(source_polygon_pixel[:,1])]
   print("----im_size----")
@@ -363,7 +331,6 @@ def get_polygon_from_ae():
   if bbox_request == None:
     print("Request cannot be compleated at the moment")
     exit()
-    
 
   print(bbox_request)
   geom_all = [json.loads(bb) for bb in bbox_request]
@@ -399,6 +366,18 @@ def main(argv=None):
     argv = sys.argv[1:]
   args = parse_command_line(argv)
   config_file = args['config_file']
+  particelle_pd = pd.read_excel("data/feudi.xlsx", 
+                                index_col=0, 
+                                dtype={'id':int, 
+                                       'Comune':str, 
+                                       'Foglio': int,
+                                       'Particella': int, 
+                                       'Pagina':int,
+                                       'Ha': int,
+                                       'Aa':int,
+                                       'Ca':int}
+                                )
+  print(particelle_pd)
   with open(config_file, 'r') as file:
     inputs = yaml.safe_load(file)
   

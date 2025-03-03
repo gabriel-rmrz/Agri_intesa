@@ -13,7 +13,27 @@ params:
     url: "https://siat2.provincia.avellino.it/server/services/RASTER/Ortofoto_AGEA_2020/MapServer/WMSServer"
     # Parameters for the full region map (in this case the region including all the shapes)
     layer_names: ['0']           # There is only one layer in the geojson produced by Roberto
-    #image_size: [820, 580]       # Keeping approximatelly the proportion of the origina;
     image_format: "image/jpeg"   # Preferibly would be geotiff, but not included in the server.
     crs: "EPSG:4326"             
     full_bbox: [14.7434, 40.8638, 15.1123, 41.0615]
+  localDB:
+    path: "/Users/garamire/Work/RemoteSensing/AgroIntesaProject/ITALIA"
+  requests_file:
+    path: "/Users/garamire/Work/RemoteSensing/AgroIntesaProject/Agro_intesa/data/feudi_mod.xlsx"
+    crs: 'EPSG:6706'
+    provinces:
+      CAMPANIA: ['AV','BN']
+    format:  
+      id: int
+      Regione: str
+      SiglaProvincia: str
+      CodComune: str
+      Comune: str
+      Foglio: int
+      Particella: int
+      Pagina: int
+      Ha: int
+      Aa: int
+      Ca: int
+
+
