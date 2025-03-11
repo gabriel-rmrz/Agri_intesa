@@ -17,3 +17,21 @@ params:
     image_format: "image/jpeg"   # Preferibly would be geotiff, but not included in the server.
     crs: "EPSG:4326"             
     full_bbox: [14.7434, 40.8638, 15.1123, 41.0615]
+  requests_file:
+    path: "/Users/garamire/Work/RemoteSensing/AgroIntesaProject/Agro_intesa/data/feudi_mod.xlsx"
+    crs: 'EPSG:6706'
+    provinces:
+      CAMPANIA: ['AV','BN']
+    format:
+      id: int
+      Regione: str
+      SiglaProvincia: str
+      CodComune: str
+      Comune: str
+      Foglio: int
+      Particella: int
+      Pagina: int
+      Ha: int
+      Aa: int
+      Ca: int
+

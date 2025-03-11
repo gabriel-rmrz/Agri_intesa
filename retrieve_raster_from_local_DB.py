@@ -1,7 +1,7 @@
 import sys
 import yaml
 import argparse
-
+import re
 import geopandas as gpd
 import pandas as pd
 import numpy as np
@@ -23,6 +23,10 @@ from IPython.display import Image
 from io import BytesIO
 from PIL import Image as PILImage, ImageDraw
 
+def transform_string(s):
+  s_out = re.sub(r'[^A-Za-z0-9_ ]', '', s).upper()
+  s_out = re.sub(r'[ ]', '_', s_out)
+  return s_out 
 
 def get_images(params, image_name, polygon, plot_output=False):
   wms_url =   params['wms_info']['url']
@@ -113,15 +117,17 @@ def main(argv=None):
       req_com_pd = req_prov_pd[~req_prov_pd["CodComune"].duplicated()][['CodComune', 'Comune']]
       for i, c in req_com_pd.iterrows():
         comune_pd = get_df(region,prov, c.CodComune, c.Comune)
-        print(f'{region}-{prov}-Retrieving images for the "comune": {c.Comune}')
+        #print(f'{region}-{prov}-Retrieving images for the "comune": {c.Comune}')
 
         if comune_pd.empty:
           continue
         for foglio, particella in zip(req_prov_pd[req_prov_pd.CodComune == c.CodComune].Foglio, req_prov_pd[req_prov_pd.CodComune == c.CodComune].Particella):
-          print(f"Foglio {foglio}. Retrieving parcel {particella}")
+          #print(f"Foglio {foglio}. Retrieving parcel {particella}")
 
           cadastral_id = generate_cadastral_id(c.CodComune, foglio, particella)
-          image_name = f"{region}_{prov}_{c.Comune}_{foglio}_{particella}"
+          image_name = f"{region}_{prov}_{transform_string(c.Comune)}_{foglio}_{particella}"
+          print(f"transform_string(c.Comune): {transform_string(c.Comune)}")
+          break
           polygon = comune_pd[comune_pd.gml_id == cadastral_id].geometry
           if polygon.shape[0] == 1:
             get_images(params, image_name, polygon, True)
