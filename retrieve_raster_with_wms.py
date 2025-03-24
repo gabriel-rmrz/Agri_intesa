@@ -121,6 +121,11 @@ def get_label_mask(params, mask_file_name, polygon_data, polygon_intersection):
   p_intersection_pixel[:,0] = ((p_intersection_pixel[:,0] - image_bounds[0])/res).astype(int)
   p_intersection_pixel[:,1] = ((p_intersection_pixel[:,1] - image_bounds[1])/res).astype(int)
   p_intersection_pixel = p_intersection_pixel.astype(int)
+  p_intersection_pixel_dict = {'pixel_polygon': p_intersection_pixel.tolist()}
+  print(p_intersection_pixel_dict)
+  
+  with open(f'samples/mask_{mask_file_name}.json', 'w') as fp:
+    json.dump(p_intersection_pixel_dict, fp)
 
   image_bounds_pixel = np.copy(image_bounds)
   image_bounds_pixel[2] = ((image_bounds_pixel[2] - image_bounds_pixel[0])/res).astype(int)
