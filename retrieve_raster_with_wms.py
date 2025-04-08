@@ -1,3 +1,5 @@
+DEBUG=False
+
 #import os
 import pathlib
 import sys
@@ -16,6 +18,7 @@ from utils.transform_coord import transform_coord
 from utils.calculate_image_size import calculate_image_size
 from utils.make_bbox_geojson import make_bbox_geojson
 from utils.get_pixel_coord_from_multipol import get_pixel_coord_from_multipol
+from utils.get_pixel_coord import get_pixel_coord
 from utils.generate_cadastral_id import generate_cadastral_id
 from utils.get_df import get_df
 
@@ -39,65 +42,76 @@ def transform_string(s):
   s_out = re.sub(r'[^A-Za-z0-9_ ]', '', s).upper()
   s_out = re.sub(r'[ ]', '_', s_out)
   return s_out
-
-def get_images(params, image_name, polygon,plot_output=False):
-  wms_url = params['wms_info']['url']
+def get_images(params, image_name, polygon, plot_output=False):
+  wms_url =   params['wms_info']['url']
   wms = WebMapService(wms_url)
-  crs_source= params['wms_info']['crs']
-  crs_polygons= params['wms_info']['crs']
+  crs_source = params['wms_info']['crs']
+  crs_polygons = params['requests_file']['crs']
   res = params['wms_info']['resolution']
 
-  p, p_pix = get_pixel_coord_from_multipol(polygon, crs_source, res)
-  im_size = calculate_image_size(polygon.bounds, res, crs_source)
+  polygons, polygon_coords = get_pixel_coord(polygon, crs_polygons, res)
+  for j, (p, p_pix) in  enumerate(zip(polygons, polygon_coords)):
 
-  img1 = wms.getmap(
-    layers=params['wms_info']['layer_names'],
-    #size= [600,400],
-    size= im_size,
-    srs= crs_source,
-    bbox = polygon.bounds,
-    #bbox = [14.7434, 40.8638, 15.1123, 41.0615],
-    format= params['wms_info']['image_format'])
+    transformer = Transformer.from_crs(crs_polygons, crs_source, always_xy=True)
 
-  Image(img1.read())
-  out_name = f'samples/sample_{image_name}'
-  out = open(f'{out_name}.png', 'wb')
-  out.write(img1.read())
+    image_bounds_min = transformer.transform(float(np.min(p[:,0])),float(np.min(p[:,1])))
+    image_bounds_max = transformer.transform(float(np.max(p[:,0])),float(np.max(p[:,1])))
+    image_bounds = tuple((image_bounds_min[0], image_bounds_min[1], image_bounds_max[0], image_bounds_max[1]))
+    im_size = calculate_image_size(image_bounds, res, crs_source)
+    if DEBUG:
+      print(f"image_name: {image_name}")
+      print(f"image_bounds: {image_bounds}")
+      print(f"im_size: {im_size}")
+      print(f"image_bounds: {image_bounds}")
+      print(type(image_bounds))
+      print(image_bounds)
+      print(f"im_size: {im_size}")
+
+    img1 = wms.getmap(
+      layers=params['wms_info']['layer_names'],
+      size= im_size,
+      srs= crs_source,
+      #bbox = list([ image_bounds_min[0], image_bounds_min[1], image_bounds_max[0], image_bounds_max[1]]),
+      bbox = image_bounds,
+      format= params['wms_info']['image_format'])
 
 
+    # Convert IPython Image to Numpy array
+    image_data = BytesIO(Image(img1.read()).data)
+    pil_image = PILImage.open(image_data).convert('RGB')
+    image_array = np.array(pil_image)
+    np.savez_compressed(f"samples/array_{image_name}_{j}.npz",image_array)
+    if DEBUG:
+      print(f"image_array.shape: {image_array.shape}")
+      print(f"samples/array_{image_name}_{j}.npz")
+    # Create a mask
+    mask = np.zeros((image_array.shape[0], image_array.shape[1]), dtype=np.uint8)
+    mask_image = PILImage.fromarray(mask)
+    draw = ImageDraw.Draw(mask_image)
+    draw.polygon(p_pix, fill = 1)
+    mask = np.array(mask_image)
+    np.savez_compressed(f"samples/array_mask_{image_name}_{j}.npz",mask)
 
-  # Convert IPython Image to Numpy array
-  image_data = BytesIO(Image(img1.read()).data)
-  pil_image = PILImage.open(image_data).convert('RGB')
-  image_array = np.array(pil_image)
-
-  # Create a mask
-  mask = np.zeros((image_array.shape[0], image_array.shape[1]), dtype=np.uint8)
-  mask_image = PILImage.fromarray(mask)
-  draw = ImageDraw.Draw(mask_image)
-  draw.polygon(p_pix, fill = 1)
-  mask = np.array(mask_image)
-
-  # Apply the mask to the image)
-  masked_image = np.copy(image_array)
-  masked_image[mask!=1] = (0,0,0) # Setmasked pixels to black
-
-  if plot_output:
-    # Display the original and masked images
-
-    fig = plt.figure(figsize=(10,5))
-    ax1 = fig.add_subplot(1,2,1)
-
-    ax1.set_title("Original Image")
-    ax1.imshow(image_array)
-    ax1.set_axis_off()
-
-    ax2 = fig.add_subplot(1,2,2)
-    ax2.set_title("Masked Image")
-    ax2.imshow(masked_image)
-    ax2.set_axis_off()
-    #fig.show()
-    fig.savefig(f'{out_name}_masked.png')
+    if plot_output:
+      #Image(img1.read())
+      out_name = f'samples/{image_name}_{j}'
+      out = open(f'{out_name}.png', 'wb')
+      out.write(img1.read())
+      # Apply the mask to the image)
+      masked_image = np.copy(image_array)
+      masked_image[mask!=1] = (0,0,0) # Setmasked pixels to black
+      # Display the original and masked images
+      fig = plt.figure(figsize=(10,5))
+      ax1 = fig.add_subplot(1,2,1)
+      ax1.set_title("Original Image")
+      ax1.imshow(image_array)
+      ax1.set_axis_off()
+      ax2 = fig.add_subplot(1,2,2)
+      ax2.set_title("Masked Image")
+      ax2.imshow(masked_image)
+      ax2.set_axis_off()
+      #fig.show()
+      fig.savefig(f'{out_name}_masked.png')
 
 def round_geom_coords(geom, precision):
     if geom.geom_type == 'Polygon':
@@ -110,35 +124,45 @@ def round_geom_coords(geom, precision):
     else:
         raise ValueError(f'Geometry type {geom.geom_type} not supported')
 
-def get_label_pixel_coord(polygon_data, polygon_label, params):
-  pass
 def get_label_mask(params, mask_file_name, polygon_data, polygon_intersection):
   res = params['wms_info']['resolution']
+  crs_source = params['wms_info']['crs']
   p_data = np.array(polygon_data)
   p_intersection = np.array(polygon_intersection)
   image_bounds = np.array((float(np.min(p_data[:,0])), float(np.min(p_data[:,1])), float(np.max(p_data[:,0])), float(np.max(p_data[:,1]))))
+  #im_size = calculate_image_size(image_bounds, res, crs_source)
+  if DEBUG:
+    print(f"mask_file_name: {mask_file_name}")
+    print(f"image_bounds: {image_bounds}")
+  
   p_intersection_pixel = np.copy(p_intersection)
-  p_intersection_pixel[:,0] = ((p_intersection_pixel[:,0] - image_bounds[0])/res).astype(int)
-  p_intersection_pixel[:,1] = ((p_intersection_pixel[:,1] - image_bounds[1])/res).astype(int)
+  # Coordinate must be reversed x -> y to be consistent with the convention used thus far
+  p_intersection_pixel[:,1] = ((p_intersection_pixel[:,0] - image_bounds[0])/res).astype(int)
+  p_intersection_pixel[:,0] = ((p_intersection_pixel[:,1] - image_bounds[1])/res).astype(int)
   p_intersection_pixel = p_intersection_pixel.astype(int)
   p_intersection_pixel_dict = {'pixel_polygon': p_intersection_pixel.tolist()}
-  print(p_intersection_pixel_dict)
   
   with open(f'samples/mask_{mask_file_name}.json', 'w') as fp:
     json.dump(p_intersection_pixel_dict, fp)
 
   image_bounds_pixel = np.copy(image_bounds)
-  image_bounds_pixel[2] = ((image_bounds_pixel[2] - image_bounds_pixel[0])/res).astype(int)
-  image_bounds_pixel[3] = ((image_bounds_pixel[3] - image_bounds_pixel[1])/res).astype(int)
-  image_bounds_pixel[0] = 0
-  image_bounds_pixel[1] = 0
-  image_bounds_pixel = image_bounds_pixel.astype(int)
-  mask = np.zeros((image_bounds_pixel[2], image_bounds_pixel[3]), dtype=np.uint8)
+  # Coordinate must be reversed x -> y to be consistent with the convention used thus far
+  image_bounds_pixel_out = np.array([0,0,0,0])
+  image_bounds_pixel_out[3] = (image_bounds_pixel[2]/res - image_bounds_pixel[0]/res).astype(int)
+  image_bounds_pixel_out[2] = (image_bounds_pixel[3]/res - image_bounds_pixel[1]/res).astype(int)
+  if DEBUG:
+    print(f"image_bounds_pixel: {image_bounds_pixel}")
+    print(f"image_bounds_pixel_out: {image_bounds_pixel_out}")
+  #image_bounds_pixel[0] = 0
+  #image_bounds_pixel[1] = 0
+  image_bounds_pixel_out = image_bounds_pixel_out.astype(int)
+  mask = np.zeros((image_bounds_pixel_out[2], image_bounds_pixel_out[3]), dtype=np.uint8)
   mask_image = PILImage.fromarray(mask)
   draw = ImageDraw.Draw(mask_image)
   draw.polygon(p_intersection_pixel, fill=1)
   mask = np.array(mask_image)
-  print(f"samples/array_mask_{mask_file_name}")
+  if DEBUG:
+    print(f"samples/array_mask_{mask_file_name}")
   np.savez_compressed(f"samples/array_mask_{mask_file_name}", mask)
 
 def main(argv=None):
@@ -178,23 +202,38 @@ def main(argv=None):
     comune_pd = get_df(region,prov, cod_comune, comune)
 
 
+    # Looping over the entries in the geofiles containing the labeled polygons for all the comune of interest.
     for fog, par, polygon_label in zip(input_data.Foglio, input_data.Particella, input_data.geometry):
-      print(f"foglio: {fog};     particella:{par}")
+      # Making sure the foglio is valid and coverting to useful types
       if fog is None:
         continue
-      fog = re.sub(r'[^0-9]', '', fog)
+      fog = int(re.sub(r'[^0-9]', '', fog))
+      par = int(par)
       #com_norm = normalize_string(comune) # Decompose accents
-      cadastral_id = generate_cadastral_id(cod_comune, int(fog), int(par))
+
+      # Generating the cadatral id with which the search in the local database, downloaded from agenzia delle entrate (AE) site, 
+      # which contains o or multiple polygons registered
+      cadastral_id = generate_cadastral_id(cod_comune, fog, par)
       if not comune_pd.empty:
-        print("Comune non empty")
+        #print("Comune non empty")
+        polygon = comune_pd[comune_pd.gml_id == cadastral_id].geometry
+        image_name_all = f"label_region_prov_{comune}_{fog}_{par}"
+        # Getting the images for  all the polygons registered in AE.
+        print(f"polygon: {polygon}")
+        if polygon.empty:
+          continue
+        get_images(params, image_name_all, polygon, plot_output=True)
         polygon_all = comune_pd[comune_pd.gml_id == cadastral_id].geometry
-        polygon_all = polygon_all.scale(1.03)
+        #polygon_all = polygon_all.scale(1.03)
+        ''' The matching of the polygon is not made based on a point base comparison, but with the intersection of the polygons
         precision = 6
         polygon_all = polygon_all.apply(lambda geom: round_geom_coords(geom, precision))
+        '''
         #polygon_label = polygon_label.apply(lambda geom: round_geom_coords(geom, precision))
         if len(mapping(polygon_all)['features']) == 0:
           continue
-        print("Geometry present")
+        if DEBUG:
+          print("Geometry present")
         polygon_all_mapped = mapping(polygon_all)['features'][0]['geometry']#['coordinates'][0]
         #points = [Point((np.round(coord[0],5), np.round(coord[1],5))) for poly in polygon_label.geoms for coord in poly.exterior.coords]
         matches = []
@@ -224,7 +263,11 @@ def main(argv=None):
               matches.append(jdx) 
               image_name = f"label_region_prov_{comune}_{fog}_{par}_{jdx}"
               get_label_mask(params, image_name, poly_transformed, poly_intersection)
-              print(image_name)
+              if DEBUG:
+                print(f"poly_transformed: {poly_transformed}")
+                print(poly_transformed)
+                print(poly)
+                print(image_name)
         else:
           poly = polygon_all_mapped['coordinates'][0]
           poly_transformed = [transformer_data.transform(c[0],c[1]) for c in poly]
@@ -236,9 +279,10 @@ def main(argv=None):
             matches.append(0) 
             image_name = f"label_region_prov_{comune}_{fog}_{par}_0"
             get_label_mask(params, image_name, poly_transformed, poly_intersection)
-          
+            if DEBUG:
+              print(f"poly_transformed: {poly_transformed}")
+              print(poly)
 
-    #get_images(params, image_name, polygon_label, plot_output=True)
 
   #make_bbox_geojson(input_files)
 

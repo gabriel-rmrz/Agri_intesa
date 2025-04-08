@@ -66,6 +66,7 @@ def get_images(params, image_name, polygon, plot_output=False):
     pil_image = PILImage.open(image_data).convert('RGB')
     image_array = np.array(pil_image)
     np.savez_compressed(f"samples/array_{image_name}.npz",image_array)
+    print(f"samples/array_{image_name}.npz")
     # Create a mask
     mask = np.zeros((image_array.shape[0], image_array.shape[1]), dtype=np.uint8)
     mask_image = PILImage.fromarray(mask)
@@ -128,11 +129,9 @@ def main(argv=None):
           cadastral_id = generate_cadastral_id(c.CodComune, foglio, particella)
           image_name = f"{region}_{prov}_{transform_string(c.Comune)}_{foglio}_{particella}"
           print(f"transform_string(c.Comune): {transform_string(c.Comune)}")
-          break
           polygon = comune_pd[comune_pd.gml_id == cadastral_id].geometry
           if polygon.shape[0] == 1:
             get_images(params, image_name, polygon, True)
-            break
 
 if __name__=="__main__":
   status = main()

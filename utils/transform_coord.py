@@ -1,6 +1,5 @@
 from pyproj import CRS, Transformer
 
-
 def transform_coord(point_in, crs, res=0.5):
   # Create CRS object
   crs_obj = CRS.from_string(crs)

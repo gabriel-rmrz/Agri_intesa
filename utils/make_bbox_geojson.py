@@ -1,3 +1,4 @@
+DEBUG=False
 import geopandas as gpd
 
 def make_bbox_geojson(input_files):
@@ -9,9 +10,10 @@ def make_bbox_geojson(input_files):
   for id_, in_file in enumerate(input_files):
     layer_name = gpd.list_layers(in_file).name[0]
     input_data = gpd.read_file(in_file, layer=layer_name)
-    print(input_data.head)
-    print(input_data.geometry.bounds.minx)
-    print(input_data.geometry.bounds.minx.min())
+    if DEBUG:
+      print(input_data.head)
+      print(input_data.geometry.bounds.minx)
+      print(input_data.geometry.bounds.minx.min())
     min_x_prov = input_data.geometry.bounds.minx.min().item()
     min_y_prov = input_data.geometry.bounds.miny.min().item()
     max_x_prov = input_data.geometry.bounds.maxx.max().item()
@@ -43,5 +45,6 @@ def make_bbox_geojson(input_files):
   gdf["id"] = ids
   #print(province_bbox)
   #gdf = gpd.GeoDataFrame(province_bbox, crs="EPSG:4326")
-  print(gdf.to_json())
+  if DEBUG:
+    print(gdf.to_json())
   gdf.to_file('all_bbox_limits.geojson', driver='GeoJSON')
