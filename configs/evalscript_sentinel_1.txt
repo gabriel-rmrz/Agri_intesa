@@ -1,0 +1,31 @@
+// Simple script to get VV polarization
+// Sentinel-1 has no RGB, so we work with radar backscatter
+// Return a single band image
+
+//VERSION=3
+function setup() {
+    return {
+        input: ["VV"],
+        output: {
+            bands: 1,
+            sampleType: "INT16"
+        },
+    };
+}
+function updateOutputMetadata(scenes, inputMetadata, outputMetadata) {
+    outputMetadata.userData = { "norm_factor":  inputMetadata.normalizationFactor,
+                                "cloud_coverage": inputMetadata.cloudCoverage,
+                                //"scenes":  JSON.stringify(scenes),
+                                //"tiles": JSON.stringify(scenes.tiles),
+                              }
+    var tileDates = []
+    for (i=0; i < scenes.tiles.length; i++){
+        tileDates.push(scenes.tiles[i].date)
+    }
+    outputMetadata.userData.tileDates = tileDates
+}
+
+function evaluatePixel(sample) {
+    return [sample.VV];
+}
+

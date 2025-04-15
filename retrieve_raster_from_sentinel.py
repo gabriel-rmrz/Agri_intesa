@@ -78,26 +78,26 @@ def plot_image(image, factor=1, cmap = 'viridis',vmin=0, vmax=1):
 
   plt.imshow(np.minimum(image*factor, vmax), cmap=cmap, vmin=vmin, vmax=vmax)
   plt.savefig("test.png")
-def get_config(INSTANCE_ID = '3be8aaf7-7df4-4d22-b7af-f0d9dc4736c3'):
+
+def get_config(params,INSTANCE_ID = '3be8aaf7-7df4-4d22-b7af-f0d9dc4736c3'):
   
-  config_file = 'configs/default_parameters_sentinel.yaml'
-  with open(config_file, 'r') as file:
+  with open(params['authentification']['path'], 'r') as file:
     inputs = yaml.safe_load(file)
-  params = inputs['params']
+  auth = inputs['authentification']
   if INSTANCE_ID:
     config = SHConfig()
     #config.instance_id = INSTANCE_ID
-    config.sh_client_id = params['config']["sh_client_id"]
-    config.sh_client_secret = params['config']["sh_client_secret"] 
-    config.sh_base_url = params['config']["sh_base_url"] 
-    config.sh_token_url = params['config']["sh_token_url"] 
+    config.sh_client_id = auth["sh_client_id"]
+    config.sh_client_secret = auth["sh_client_secret"] 
+    config.sh_base_url = auth["sh_base_url"] 
+    config.sh_token_url = auth["sh_token_url"] 
     #config = SHConfig()
     #config.instance_id = INSTANCE_ID
   else:
     config = None
   return config
-
-def make_all_bands_request(config, time_interval, region_bbox, region_size):
+  
+def all_bands_request(config, time_interval, region_bbox, region_size):
   evalscript_all_bands = """
   //VERSION=3
   function setup() {
@@ -146,7 +146,7 @@ def make_all_bands_request(config, time_interval, region_bbox, region_size):
     size=region_size,
     config=config,
   )
-def make_true_colors_request(config, time_interval, region_bbox, region_size):
+def true_colors_request(config, time_interval, region_bbox, region_size):
   evalscript_true_color = """
   //VERSION=3
   function setup() {
@@ -179,15 +179,55 @@ def make_true_colors_request(config, time_interval, region_bbox, region_size):
     config=config,
   )
 
-def make_request(region_coords=(14.7434, 40.8638, 15.1123, 41.0615), output_name='test_region', crs=CRS.WGS84):
-  config = get_config()
-  #region_coords = (46.16, -16.15, 46.51, -15.58)
-  #region_coords = (14.7434, 40.8638, 14.75, 40.9)
-  #crs = CRS.WGS84
-  #region_coords = (14.7434, 40.8638, 15.1123, 41.0615) # This our whole region of interest. Included AV and BN sections
-  resolution = 10 
+def custom_requeset(params, config, time_interval, region_bbox, region_size):
+  #TODO: make sure that the collection, collection_alias, avalscript_custo, mosaiking_order and output_type are correct and exist as option before making the reques.
+  #TODO: Add the parameters above to the yaml config file and add evalscript  to the Data directory as an option.
+  request_params = params['request_params']
+  with open(request_params['evalscript_path']) as file:
+    evalscript_custom = file.read()
+  
+  collection = request_params['collection']
+  collection_alias = request_params['collection_alias']
+  other_args = request_params['other_args']
+  if other_args == 'None':
+    other_args = None
+  print(type(other_args))
+  if  request_params['mosaicking_order'] == 'None':
+    mosaicking_order = None
+  else:
+    mosaicking_order = getattr(MosaickingOrder, request_params['mosaicking_order'])
+  res = request_params['responses']
+  responses = [SentinelHubRequest.output_response(key, getattr(MimeType, value)) for key, value in res.items()]
+
+
+  '''
+  responses=[
+    SentinelHubRequest.output_response("default", getattr(MimeType, output_type)),
+    SentinelHubRequest.output_response("userdata", MimeType.JSON),
+    ],
+  '''
+  return SentinelHubRequest(
+    evalscript=evalscript_custom,
+    input_data=[
+      SentinelHubRequest.input_data(
+        data_collection=getattr(DataCollection, collection).define_from(collection_alias, service_url=config.sh_base_url),
+        time_interval=time_interval,
+        other_args = other_args,
+        #mosaicking_order=getattr(MosaickingOrder, mosaicking_order),
+        mosaicking_order= mosaicking_order,
+      )
+    ],
+    responses = responses,
+    bbox=region_bbox,
+    size=region_size,
+    config=config,
+  )
+def make_request(params,region_coords=(14.7434, 40.8638, 15.1123, 41.0615), output_name='test_region', crs=CRS.WGS84):
+  config = get_config(params)
+  resolution = params['request_params']['resolution']
   region_bbox = BBox(bbox=region_coords, crs=crs)
   region_size = bbox_to_dimensions(region_bbox, resolution=resolution)
+
   print("##################################")
   print(f"region_size: {region_size}")
   print("##################################")
@@ -195,52 +235,63 @@ def make_request(region_coords=(14.7434, 40.8638, 15.1123, 41.0615), output_name
   print(f"Image shape at {resolution} m resolution: {region_size} pixels")
   #print(list(MimeType)) # This is to list all the somple formats available
   '''
-  start = datetime.datetime(2019, 1, 1)
-  end = datetime.datetime(2019, 12, 31)
-  n_chunks = 13
-  tdelta = (end - start) / n_chunks
-  edges = [(start + i * tdelta).date().isoformat() for i in range(n_chunks)]
-  slots = [(edges[i], edges[i + 1]) for i in range(len(edges) - 1)]
-  '''
   slots = [('2018-12-01', '2019-02-28'), ('2019-03-01', '2019-04-30'), ('2019-05-01', '2019-06-30'), ('2019-07-01', '2019-08-31'),
            ('2019-12-01', '2020-02-28'), ('2020-03-01', '2020-04-30'), ('2020-05-01', '2020-06-30'), ('2020-07-01', '2020-08-31'),
            ('2020-12-01', '2021-02-28'), ('2021-03-01', '2021-04-30'), ('2021-05-01', '2021-06-30'), ('2021-07-01', '2021-08-31'),
            ('2021-12-01', '2022-02-28'), ('2022-03-01', '2022-04-30'), ('2022-05-01', '2022-06-30'), ('2022-07-01', '2022-08-31')]
+  '''
+  slots = params['request_params']['slots']
+  if slots == None:
+    start = datetime.datetime(2019, 1, 1)
+    end = datetime.datetime(2022, 12, 31)
+    n_chunks = 49
+    #n_chunks = 2
+    tdelta = (end - start) / n_chunks
+    edges = [(start + i * tdelta).date().isoformat() for i in range(n_chunks)]
+    slots = [(edges[i], edges[i + 1]) for i in range(len(edges) - 1)]
   
-  print("Monthly time windows:\n")
+  print("Time windows:\n")
   print(slots)
   
   # create a list of requests
-  #list_of_requests = [make_true_colors_request(config, slot, region_bbox, region_size) for slot in slots]
-  list_of_requests = [make_all_bands_request(config, slot, region_bbox, region_size) for slot in slots]
+  #list_of_requests = [true_colors_request(config, slot, region_bbox, region_size) for slot in slots]
+  #list_of_requests = [all_bands_request(config, slot, region_bbox, region_size) for slot in slots]
+  list_of_requests = [custom_requeset(params, config, slot, region_bbox, region_size) for slot in slots]
   list_of_requests = [request.download_list[0] for request in list_of_requests]
   
 
   for i, l in enumerate(list_of_requests):
     l.save_response =True
-    l.data_folder="samples/sentinel"
+    l.data_folder= params['request_params']['output_directory']
     l.save_response = True
-    l.filename = f"{output_name}_{slots[i][0]}_{slots[i][1]}.tiff"
+    l.filename = f"{output_name}_{slots[i][0]}_{slots[i][1]}.zip"
   
   # download data with multiple threads
   data = SentinelHubDownloadClient(config=config).download(list_of_requests, max_threads=5, show_progress=True)
 
+  
   # some stuff for pretty plots
-  ncols = 4
+  ncols = 12 
   nrows = 4
   aspect_ratio = region_size[0] / region_size[1]
   subplot_kw = {"xticks": [], "yticks": [], "frame_on": False}
   
   fig, axs = plt.subplots(ncols=ncols, nrows=nrows, figsize=(5 * ncols * aspect_ratio, 5 * nrows), subplot_kw=subplot_kw)
   
-  for idx, image in enumerate(data):
-    image = image[:,:,[7,2,3]]
+  print(type(data))
+  print(type(data[0]))
+  for idx, data_i in enumerate(data):
+    print(data[idx]['userdata.json'])
+    image = data_i['default.tif']
+    #print(image.shape)
+    image = image#[:,:,[0, 0, 0]]
     ax = axs[idx // ncols][idx % ncols]
     ax.imshow(np.clip(image * 3.5 / 10000, 0, 1))
     ax.set_title(f"{slots[idx][0]}  -  {slots[idx][1]}", fontsize=10)
   
   plt.tight_layout()
   plt.savefig(f'samples/sentinel/all_{output_name}.png')
+  exit()
 
 def main(argv=None):
   if argv == None:
@@ -249,7 +300,13 @@ def main(argv=None):
   crs = CRS.WGS84
   region_coords = (14.7434, 40.8638, 15.1123, 41.0615) # This our whole region of interest. Included AV and BN sections
   dataset_comune = {}
-  isOnlyParcelsOfInterest = False
+  isOnlyParcelsOfInterest = True
+
+  #config_file = 'configs/default_parameters_sentinel.yaml'
+  config_file = 'configs/parameters_sentinel_1.yaml'
+  with open(config_file, 'r') as file:
+    inputs = yaml.safe_load(file)
+  params = inputs['params']
 
 
   input_files = [f for f in pathlib.Path().glob("../GEOJSON/FEUDI/GEOJSON_FEUDI/*.geojson")]
@@ -279,14 +336,14 @@ def main(argv=None):
         print(f'Making the map request for {region}_{prov}_{comune}')
         print(dataset_comune[f'{region}_{prov}_{comune}'].bounds)
         region_coords = dataset_comune[f'{region}_{prov}_{comune}'].bounds
-        make_request(region_coords, output_name, crs)
+        make_request(params, region_coords, output_name, crs)
     else:
       if os.path.isfile(f"data/sentinel/{region}_{prov}_{comune}.json"):
         with open(f"data/sentinel/{region}_{prov}_{comune}.json") as jf:
           region_bbox = json.load(jf)
         region_coords = region_bbox['bbox']
         print(region_coords)
-        make_request(region_coords, output_name, crs)
+        make_request(params, region_coords, output_name, crs)
       else:
         comune_pd = get_df(region,prov, cod_comune, comune)
         print(f"data/sentinel/{region}_{prov}_{comune}.json")
@@ -304,7 +361,7 @@ def main(argv=None):
           print(f'Making the map request for {region}_{prov}_{comune}')
           print(dataset_comune[f'{region}_{prov}_{comune}'].bounds)
           region_coords = dataset_comune[f'{region}_{prov}_{comune}'].bounds
-          make_request(region_coords, output_name, crs)
+          make_request(params, region_coords, output_name, crs)
           out_bbox = {"bbox": region_coords}
           with open(f"data/sentinel/{region}_{prov}_{comune}.json", 'w') as fp:
             json.dump(out_bbox, fp)
