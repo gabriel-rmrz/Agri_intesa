@@ -26,6 +26,6 @@ function updateOutputMetadata(scenes, inputMetadata, outputMetadata) {
 }
 
 function evaluatePixel(sample) {
-    return [sample.VV];
+    return [sample.VV/15];
 }
 

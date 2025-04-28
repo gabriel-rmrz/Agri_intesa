@@ -53,19 +53,28 @@ def custom_collate_fn(batch):
 
 def main():
   device  = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+  with open('input_files.txt', 'r') as f:
+    input_files = f.readlines()
+  '''
   input_files = ['Santo_Stefano_del_Sole_1_1_0',
                       'Atripalda_4_89_0']
+  '''
+  for in_file in input_files:
+    
+    print(in_file.rstrip())
+
   dataset = []
   for in_file in input_files:
-      mask_name = f"samples/array_mask_label_region_prov_{in_file}.npz" 
-      data_file_name = f"samples/label_region_prov_{in_file}.png"
-      data = iio.imread(data_file_name)
-      data = np.transpose(data, (2,0,1))
-      data = torch.from_numpy(data).float()
-      mask = np.load(mask_name)['arr_0']
-      mask = mask.reshape((1, mask.shape[0], mask.shape[1]))
-      mask = torch.from_numpy(mask).float()
-      dataset.append((data,mask))
+    in_file = in_file.rstrip()
+    mask_name = f"samples/array_mask_label_region_prov_{in_file}.npz" 
+    data_file_name = f"samples/label_region_prov_{in_file}.png"
+    data = iio.imread(data_file_name)
+    data = np.transpose(data, (2,0,1))
+    data = torch.from_numpy(data).float()
+    mask = np.load(mask_name)['arr_0']
+    mask = mask.reshape((1, mask.shape[0], mask.shape[1]))
+    mask = torch.from_numpy(mask).float()
+    dataset.append((data,mask))
 
   loader = DataLoader(dataset, batch_size=2, collate_fn=custom_collate_fn)
   model = TinySegNet().to(device)

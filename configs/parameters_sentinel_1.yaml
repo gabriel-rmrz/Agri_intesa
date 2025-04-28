@@ -24,18 +24,14 @@ params:
   request_params:
     evalscript_path: "configs/evalscript_sentinel_1.txt"
     resolution: 10 #in meters
-    slots: [['2018-12-01', '2019-02-28']] # This will superseed the automatic splitting. Set this to None for automatic (even) splitting.
+    slots: [["2020-01-01", "2022-04-10"]] # This will superseed the automatic splitting. Set this to None for automatic (even) splitting.
     start_date: '2018-12-01'
     end_date: '2019-02-28' 
     n_chunks: 1
     collection: "SENTINEL1_IW"
     collection_alias: "sentinel-1-grd"
     mosaicking_order: None
-    other_args:
-      dataFilter:
-        polarization: "VV"
-        resolution: "HIGH"
-      distinct: "date"
+    other_args: None
     responses: 
       default: "TIFF"
       userdata: "JSON"

@@ -37,6 +37,5 @@ params:
       userdata: "JSON"
     output_directory: "samples/sentinel"
 
-
   authentification:
     path: 'configs/auth_sentinel.yaml'

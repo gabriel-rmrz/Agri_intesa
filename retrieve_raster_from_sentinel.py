@@ -15,6 +15,7 @@ from shapely.geometry import shape, Polygon, mapping, Point, MultiPolygon, Linea
 from shapely.validation import make_valid
 from shapely.errors import GEOSException
 from sentinelhub import SHConfig
+
 from sentinelhub import (
     CRS,
     BBox,
@@ -73,14 +74,11 @@ def plot_image(image, factor=1, cmap = 'viridis',vmin=0, vmax=1):
   Utility function for plotting RGB images.
   """
   plt.subplots(nrows=1, ncols=1, figsize=(15,7))
-  print(vmin)
-  print(vmax)
 
   plt.imshow(np.minimum(image*factor, vmax), cmap=cmap, vmin=vmin, vmax=vmax)
   plt.savefig("test.png")
 
 def get_config(params,INSTANCE_ID = '3be8aaf7-7df4-4d22-b7af-f0d9dc4736c3'):
-  
   with open(params['authentification']['path'], 'r') as file:
     inputs = yaml.safe_load(file)
   auth = inputs['authentification']
@@ -97,89 +95,8 @@ def get_config(params,INSTANCE_ID = '3be8aaf7-7df4-4d22-b7af-f0d9dc4736c3'):
     config = None
   return config
   
-def all_bands_request(config, time_interval, region_bbox, region_size):
-  evalscript_all_bands = """
-  //VERSION=3
-  function setup() {
-      return {
-          input: [{
-              //bands: ["B01","B02","B03","B04","B05","B06","B07","B08","B8A","B09","B10","B11","B12"],
-              bands: ["B01","B02","B03","B04","B05","B06","B07","B08","B8A","B09","B11","B12"],
-              units: "DN"
-          }],
-          output: {
-              bands: 13,
-              sampleType: "INT16"
-          }
-      };
-  }
 
-  function evaluatePixel(sample) {
-      return [sample.B01,
-              sample.B02,
-              sample.B03,
-              sample.B04,
-              sample.B05,
-              sample.B06,
-              sample.B07,
-              sample.B08,
-              sample.B8A,
-              sample.B09,
-              //sample.B10,
-              sample.B11,
-              sample.B12];
-  }
-  """
-
-  return SentinelHubRequest(
-    evalscript=evalscript_all_bands,
-    input_data=[
-      SentinelHubRequest.input_data(
-        #data_collection=DataCollection.SENTINEL2_L1C.define_from("s2l1c", service_url=config.sh_base_url),
-        data_collection=DataCollection.SENTINEL2_L2A.define_from("s2l2a", service_url=config.sh_base_url),
-        time_interval=time_interval,
-        mosaicking_order=MosaickingOrder.LEAST_CC,
-      )
-    ],
-    responses=[SentinelHubRequest.output_response("default", MimeType.TIFF)],
-    bbox=region_bbox,
-    size=region_size,
-    config=config,
-  )
-def true_colors_request(config, time_interval, region_bbox, region_size):
-  evalscript_true_color = """
-  //VERSION=3
-  function setup() {
-      return {
-          input: [{
-              bands: ["B02", "B03", "B04"]
-          }],
-          output: {
-              bands: 3
-          }
-      };
-  }
-  function evaluatePixel(sample) {
-      return [sample.B04, sample.B03, sample.B02];
-  }
-  """
-  return SentinelHubRequest(
-    evalscript=evalscript_true_color,
-    input_data=[
-      SentinelHubRequest.input_data(
-        #data_collection=DataCollection.SENTINEL2_L1C.define_from("s2l1c", service_url=config.sh_base_url),
-        data_collection=DataCollection.SENTINEL2_L2A.define_from("s2l2a", service_url=config.sh_base_url),
-        time_interval=time_interval,
-        mosaicking_order=MosaickingOrder.LEAST_CC,
-      )
-    ],
-    responses=[SentinelHubRequest.output_response("default", MimeType.TIFF)],
-    bbox=region_bbox,
-    size=region_size,
-    config=config,
-  )
-
-def custom_requeset(params, config, time_interval, region_bbox, region_size):
+def custom_request(params, config, time_interval, region_bbox, region_size):
   #TODO: make sure that the collection, collection_alias, avalscript_custo, mosaiking_order and output_type are correct and exist as option before making the reques.
   #TODO: Add the parameters above to the yaml config file and add evalscript  to the Data directory as an option.
   request_params = params['request_params']
@@ -199,22 +116,14 @@ def custom_requeset(params, config, time_interval, region_bbox, region_size):
   res = request_params['responses']
   responses = [SentinelHubRequest.output_response(key, getattr(MimeType, value)) for key, value in res.items()]
 
-
-  '''
-  responses=[
-    SentinelHubRequest.output_response("default", getattr(MimeType, output_type)),
-    SentinelHubRequest.output_response("userdata", MimeType.JSON),
-    ],
-  '''
   return SentinelHubRequest(
     evalscript=evalscript_custom,
     input_data=[
       SentinelHubRequest.input_data(
         data_collection=getattr(DataCollection, collection).define_from(collection_alias, service_url=config.sh_base_url),
         time_interval=time_interval,
-        other_args = other_args,
-        #mosaicking_order=getattr(MosaickingOrder, mosaicking_order),
-        mosaicking_order= mosaicking_order,
+        #other_args = other_args,
+        #mosaicking_order= mosaicking_order,
       )
     ],
     responses = responses,
@@ -256,7 +165,7 @@ def make_request(params,region_coords=(14.7434, 40.8638, 15.1123, 41.0615), outp
   # create a list of requests
   #list_of_requests = [true_colors_request(config, slot, region_bbox, region_size) for slot in slots]
   #list_of_requests = [all_bands_request(config, slot, region_bbox, region_size) for slot in slots]
-  list_of_requests = [custom_requeset(params, config, slot, region_bbox, region_size) for slot in slots]
+  list_of_requests = [custom_request(params, config, slot, region_bbox, region_size) for slot in slots]
   list_of_requests = [request.download_list[0] for request in list_of_requests]
   
 
@@ -268,6 +177,8 @@ def make_request(params,region_coords=(14.7434, 40.8638, 15.1123, 41.0615), outp
   
   # download data with multiple threads
   data = SentinelHubDownloadClient(config=config).download(list_of_requests, max_threads=5, show_progress=True)
+  print(data)
+  print(data[0]['default.tif'].max())
 
   
   # some stuff for pretty plots
@@ -278,6 +189,7 @@ def make_request(params,region_coords=(14.7434, 40.8638, 15.1123, 41.0615), outp
   
   fig, axs = plt.subplots(ncols=ncols, nrows=nrows, figsize=(5 * ncols * aspect_ratio, 5 * nrows), subplot_kw=subplot_kw)
   
+  '''
   print(type(data))
   print(type(data[0]))
   for idx, data_i in enumerate(data):
@@ -291,6 +203,7 @@ def make_request(params,region_coords=(14.7434, 40.8638, 15.1123, 41.0615), outp
   
   plt.tight_layout()
   plt.savefig(f'samples/sentinel/all_{output_name}.png')
+  '''
   exit()
 
 def main(argv=None):
@@ -304,6 +217,7 @@ def main(argv=None):
 
   #config_file = 'configs/default_parameters_sentinel.yaml'
   config_file = 'configs/parameters_sentinel_1.yaml'
+  #config_file = 'configs/parameters_sentinel_2_cloudMask.yaml'
   with open(config_file, 'r') as file:
     inputs = yaml.safe_load(file)
   params = inputs['params']
