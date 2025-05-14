@@ -1,4 +1,5 @@
 DEBUG = True
+import matplotlib.pyplot as plt
 import imageio.v3 as iio
 import numpy as np
 import torch
@@ -38,7 +39,7 @@ class DoubleConv(nn.Module):
       return self.double_conv(x)
 
 class UNet(nn.Module):
-  def __init__(self, in_channels=3, out_channels=1, features=[64, 128, 256]):
+  def __init__(self, in_channels=3, out_channels=1, features=[64, 128]):
     super().__init__()
 
     # Down part of UNet
@@ -202,7 +203,7 @@ def test(model, dataloader, device):
     
     with torch.no_grad():
       for images, _ in dataloader:
-        images = image.to(device)
+        images = images.to(device)
         preds = torch.sigmoid(model(images))
         preds = preds > 0.5
         predictions.append(preds.cpu())
@@ -235,6 +236,7 @@ def main():
   print("- Defining loaders.")
   train_loader = DataLoader(train_dataset, batch_size=batch_size, collate_fn=custom_collate_fn, shuffle=False)
   val_loader = DataLoader(val_dataset, batch_size=batch_size, collate_fn=custom_collate_fn, shuffle=False)
+  test_loader = DataLoader(test_dataset, batch_size=batch_size, collate_fn=custom_collate_fn, shuffle=False)
   #model = TinySegNet().to(device)
   print("Instantiating model")
   model = UNet(in_channels= 3, out_channels=1).to(device)
@@ -253,6 +255,28 @@ def main():
     train_loss = train_one_epoch(model, train_loader, optimizer, loss_fn, device, scaler)
     val_loss = evaluate(model, val_loader, loss_fn, device)
     print(f"Epoch {epoch+1}/{num_epochs} - Train Loss: {train_loss:.4f} - Val Loss: {val_loss:.4f}")
+  test_predictions = test(model, test_loader, device) 
+  print(test_predictions)
+
+  plot_output = True
+  if plot_output:
+    for i, pred in enumerate(test_predictions):
+      pred_arr = pred.numpy()
+      out_name = f"plots/unet_predictions/im_{i}.png"
+      print(np.sum(pred_arr[0][0]))
+      fig = plt.figure(figsize=(10,5))
+      ax1 = fig.add_subplot(1,2,1)
+      ax1.set_title("Original Image")
+      ax1.imshow(pred_arr[0][0])
+      ax1.set_axis_off()
+      ax2 = fig.add_subplot(1,2,2)
+      ax2.set_title("Predicted Image")
+      ax2.imshow(pred_arr[0][0])
+      ax2.set_axis_off()
+      fig.savefig(out_name)
+      print("Here")
+
+
   '''
   for epoch in range(num_epochs):
     model.train()
