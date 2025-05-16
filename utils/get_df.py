@@ -26,7 +26,7 @@ def get_df(region, prov, cod_comune, comune):
   return gdf
   '''
 
-  file_path = f"../ITALIA/{region}/{prov}/{cod_comune}_*/*_ple.gml"
+  file_path = f"data/ITALIA/{region}/{prov}/{cod_comune}_*/*_ple.gml"
   matching_files = glob.glob(file_path, recursive=False)
   if DEBUG:
     print(file_path)
