@@ -18,7 +18,7 @@ params:
     crs: "EPSG:4326"             
     full_bbox: [14.7434, 40.8638, 15.1123, 41.0615]
   requests_file:
-    path: "/Users/garamire/Work/RemoteSensing/AgroIntesaProject/Agro_intesa/data/feudi_mod.xlsx"
+    path: "data/feudi_mod.xlsx"
     crs: 'EPSG:6706'
     provinces:
       CAMPANIA: ['AV','BN']

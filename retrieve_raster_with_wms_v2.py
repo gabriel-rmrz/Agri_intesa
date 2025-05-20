@@ -366,7 +366,7 @@ def main(argv=None):
     argv = sys.argv[1:]
   args = parse_command_line(argv)
   config_file = args['config_file']
-  particelle_pd = pd.read_excel("data/feudi.xlsx", 
+  particelle_pd = pd.read_excel("data/feudi_mod.xlsx", 
                                 index_col=0, 
                                 dtype={'id':int, 
                                        'Comune':str, 
@@ -383,7 +383,7 @@ def main(argv=None):
   
   catasto_bbox, catasto_polygon_pixel = get_polygon_from_ae()
 
-  source_url_wms =inputs['params']['wms']['url']
+  source_url_wms =inputs['params']['wms_info']['url']
   source_crs = "EPSG:4326"
   source_res = 0.2
   province_name = "province_test"

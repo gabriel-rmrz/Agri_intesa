@@ -204,7 +204,6 @@ def make_request(params,region_coords=(14.7434, 40.8638, 15.1123, 41.0615), outp
   plt.tight_layout()
   plt.savefig(f'samples/sentinel/all_{output_name}.png')
   '''
-  exit()
 
 def main(argv=None):
   if argv == None:
@@ -246,6 +245,7 @@ def main(argv=None):
 
       if dataset_comune[f'{region}_{prov}_{comune}'] == None:
         print(f'The polygon for {region}_{prov}_{comune} is empty')
+        exit()
       else:
         print(f'Making the map request for {region}_{prov}_{comune}')
         print(dataset_comune[f'{region}_{prov}_{comune}'].bounds)
