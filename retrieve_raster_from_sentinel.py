@@ -220,9 +220,12 @@ def main(argv=None):
   with open(config_file, 'r') as file:
     inputs = yaml.safe_load(file)
   params = inputs['params']
+  print(params)
+  print('here1')
 
 
-  input_files = [f for f in pathlib.Path().glob("../GEOJSON/FEUDI/GEOJSON_FEUDI/*.geojson")]
+
+  input_files = [f for f in pathlib.Path().glob("data/GEOJSON/FEUDI/GEOJSON_FEUDI/*.geojson")]
   for in_file in input_files:
     print(in_file)
     # Extract filename without path
@@ -245,7 +248,6 @@ def main(argv=None):
 
       if dataset_comune[f'{region}_{prov}_{comune}'] == None:
         print(f'The polygon for {region}_{prov}_{comune} is empty')
-        exit()
       else:
         print(f'Making the map request for {region}_{prov}_{comune}')
         print(dataset_comune[f'{region}_{prov}_{comune}'].bounds)
@@ -279,21 +281,6 @@ def main(argv=None):
           out_bbox = {"bbox": region_coords}
           with open(f"data/sentinel/{region}_{prov}_{comune}.json", 'w') as fp:
             json.dump(out_bbox, fp)
-
-    
-    '''
-    if fog is None:
-    cadastral_id = generate_cadastral_id(cod_comune, int(fog), int(par))
-    if not comune_pd.empty:
-      polygon = comune_pd[comune_pd.gml_id == cadastral_id].geometry
-      for pol in polygon:
-        if dataset_comune[f'{region}_{prov}_{comune}'] is None:
-          dataset_comune[f'{region}_{prov}_{comune}'] = pol
-        else:
-          dataset_comune[f'{region}_{prov}_{comune}'] = dataset_comune[f'{region}_{prov}_{comune}'].union(pol)
-    '''
-
-
 
 if __name__== '__main__':
   status = main()
