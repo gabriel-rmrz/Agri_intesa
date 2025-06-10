@@ -35,7 +35,7 @@ params:
     responses: 
       default: "TIFF"
       userdata: "JSON"
-    output_directory: "samples/sentinel"
+    output_directory: "samples/sentinel_2"
 
   authentification:
     path: 'configs/auth_sentinel.yaml'

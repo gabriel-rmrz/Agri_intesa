@@ -1,3 +1,4 @@
+DEBUG=False
 import os
 import glob
 import sys
@@ -41,6 +42,39 @@ def close_polygon(geom):
         return Polygon(exterior_coords, holes=geom.interiors)
     return geom
 
+def make_bbox_geojson(id_, bbox, out_name):
+  province_bbox = {}
+  province_bbox['type']= 'FeatureCollection'
+  #province_bbox['name']= 'AllRegions'
+  #province_bbox['crs']= {'type': 'name', 'properties': {'name': "urn:ogc:def:crs:OGC:1.3:CRS84"}}
+  features = []
+  features.append(
+    {
+      "id":int(id_),
+      "type": "Feature",
+      "properties": {},
+      "geometry":{
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [bbox[0], bbox[1]],
+            [bbox[2], bbox[1]],
+            [bbox[2], bbox[3]],
+            [bbox[0], bbox[3]],
+            [bbox[0], bbox[1]]
+          ]
+        ]
+      }
+    }
+  )
+  province_bbox['features']=features
+  geometries = [shape(feature["geometry"]) for feature in features]
+  properties = [feature["properties"] for feature in features]
+  ids = [feature["id"] for feature in features]
+  gdf = gpd.GeoDataFrame(properties, geometry=geometries, crs="EPSG:4326")
+  gdf["id"] = ids
+  print(gdf.to_json())
+  gdf.to_file(f'data/sentinel/{out_name}.geojson', driver='GeoJSON')
 
 def get_df(region, prov, cod_comune, comune):
 
@@ -173,7 +207,8 @@ def make_request(params,region_coords=(14.7434, 40.8638, 15.1123, 41.0615), outp
     l.save_response =True
     l.data_folder= params['request_params']['output_directory']
     l.save_response = True
-    l.filename = f"{output_name}_{slots[i][0]}_{slots[i][1]}.zip"
+    l.filename = f"{output_name}.{slots[i][0]}_{slots[i][1]}.zip"
+    print(f"{params['request_params']['output_directory']}/{output_name}.{slots[i][0]}_{slots[i][1]}.zip")
   
   # download data with multiple threads
   data = SentinelHubDownloadClient(config=config).download(list_of_requests, max_threads=5, show_progress=True)
@@ -214,73 +249,89 @@ def main(argv=None):
   dataset_comune = {}
   isOnlyParcelsOfInterest = True
 
-  #config_file = 'configs/default_parameters_sentinel.yaml'
-  config_file = 'configs/parameters_sentinel_1.yaml'
+  config_file = 'configs/default_parameters_sentinel.yaml'
+  #config_file = 'configs/parameters_sentinel_1.yaml'
   #config_file = 'configs/parameters_sentinel_2_cloudMask.yaml'
   with open(config_file, 'r') as file:
     inputs = yaml.safe_load(file)
   params = inputs['params']
-  print(params)
-  print('here1')
 
+  data_folder= params['request_params']['output_directory']
+  slots = params['request_params']['slots']
 
+  pathlib.Path(data_folder).mkdir(parents=True, exist_ok=True)
+  with open(f"{data_folder}/list_retrieved_images.txt", "w") as f:
+    input_files = [f for f in pathlib.Path().glob("data/GEOJSON/FEUDI/GEOJSON_FEUDI/*.geojson")]
+    for in_file in input_files:
+      # Extract filename without path
+      filename = str(in_file).rsplit("/", 1)[-1]  # Get last segment after the last "/"
+      # Remove extension
+      result = filename.rsplit(".", 1)[0]
+      region, prov, cod_comune, comune = result.split('.')
+      output_name = f'{region}.{prov}.{comune}.{cod_comune}'
 
-  input_files = [f for f in pathlib.Path().glob("data/GEOJSON/FEUDI/GEOJSON_FEUDI/*.geojson")]
-  for in_file in input_files:
-    print(in_file)
-    # Extract filename without path
-    filename = str(in_file).rsplit("/", 1)[-1]  # Get last segment after the last "/"
-    # Remove extension
-    result = filename.rsplit(".", 1)[0]
-    region, prov, cod_comune, comune = result.split('.')
-    output_name = f'{region}_{prov}_{comune}'
+      dataset_comune[output_name] = None
 
-    dataset_comune[f'{region}_{prov}_{comune}'] = None
+      print(slots)
 
+      for slot in slots:
+        print('slot')
+        print(slot)
+        f_name = f"{output_name}.{slot[0]}_{slot[1]}\n"
+        f.write(f_name)
+      id_ =1
 
-    if isOnlyParcelsOfInterest:
-      input_data = gpd.read_file(in_file, layer=comune)
-      for fog, par, pol in zip(input_data.Foglio, input_data.Particella, input_data.geometry):
-        if dataset_comune[f'{region}_{prov}_{comune}'] is None:
-          dataset_comune[f'{region}_{prov}_{comune}'] = pol
-        else:
-          dataset_comune[f'{region}_{prov}_{comune}'] = make_valid(dataset_comune[f'{region}_{prov}_{comune}'].union(make_valid(pol)))
-
-      if dataset_comune[f'{region}_{prov}_{comune}'] == None:
-        print(f'The polygon for {region}_{prov}_{comune} is empty')
-      else:
-        print(f'Making the map request for {region}_{prov}_{comune}')
-        print(dataset_comune[f'{region}_{prov}_{comune}'].bounds)
-        region_coords = dataset_comune[f'{region}_{prov}_{comune}'].bounds
-        make_request(params, region_coords, output_name, crs)
-    else:
-      if os.path.isfile(f"data/sentinel/{region}_{prov}_{comune}.json"):
-        with open(f"data/sentinel/{region}_{prov}_{comune}.json") as jf:
-          region_bbox = json.load(jf)
-        region_coords = region_bbox['bbox']
-        print(region_coords)
-        make_request(params, region_coords, output_name, crs)
-      else:
-        comune_pd = get_df(region,prov, cod_comune, comune)
-        print(f"data/sentinel/{region}_{prov}_{comune}.json")
-        print(comune_pd.columns.tolist())
-        print(comune_pd.head)
-        for pol in comune_pd.geometry:
-          if dataset_comune[f'{region}_{prov}_{comune}'] is None:
-            dataset_comune[f'{region}_{prov}_{comune}'] = pol
+      if isOnlyParcelsOfInterest:
+        input_data = gpd.read_file(in_file, layer=comune)
+        for fog, par, pol in zip(input_data.Foglio, input_data.Particella, input_data.geometry):
+          if dataset_comune[output_name] is None:
+            dataset_comune[output_name] = pol
           else:
-            dataset_comune[f'{region}_{prov}_{comune}'] = make_valid(dataset_comune[f'{region}_{prov}_{comune}'].union(make_valid(pol)))
+            dataset_comune[output_name] = make_valid(dataset_comune[output_name].union(make_valid(pol)))
+          #print(pol.bounds)
 
-        if dataset_comune[f'{region}_{prov}_{comune}'] == None:
-          print(f'The polygon for {region}_{prov}_{comune} is empty')
+        if dataset_comune[output_name] == None:
+          print(f'The polygon for {output_name} is empty')
         else:
-          print(f'Making the map request for {region}_{prov}_{comune}')
-          print(dataset_comune[f'{region}_{prov}_{comune}'].bounds)
-          region_coords = dataset_comune[f'{region}_{prov}_{comune}'].bounds
+          print(f'Making the map request for {output_name}')
+          if DEBUG:
+            print(dataset_comune[output_name].bounds)
+          region_coords = dataset_comune[output_name].bounds
+          print(output_name)
+          print(region_coords)    
+          make_bbox_geojson(id_,region_coords,output_name)
           make_request(params, region_coords, output_name, crs)
-          out_bbox = {"bbox": region_coords}
-          with open(f"data/sentinel/{region}_{prov}_{comune}.json", 'w') as fp:
-            json.dump(out_bbox, fp)
+      else:
+        if os.path.isfile(f"data/sentinel/{output_name}.json"):
+          with open(f"data/sentinel/{ouput_name}.json") as jf:
+            region_bbox = json.load(jf)
+          region_coords = region_bbox['bbox']
+          if DEBUG:
+            print(region_coords)
+          make_request(params, region_coords, output_name, crs)
+        else:
+          comune_pd = get_df(region,prov, cod_comune, comune)
+          print(f"data/sentinel/{ouput_name}.json")
+          if DEBUG:
+            print(comune_pd.columns.tolist())
+            print(comune_pd.head)
+          for pol in comune_pd.geometry:
+            if dataset_comune[output_name] is None:
+              dataset_comune[output_name] = pol
+            else:
+              dataset_comune[output_name] = make_valid(dataset_comune[output_name].union(make_valid(pol)))
+
+          if dataset_comune[output_name] == None:
+            print(f'The polygon for {output_name} is empty')
+          else:
+            print(f'Making the map request for {output_name}')
+            if DEBUG:
+              print(dataset_comune[output_name].bounds)
+            region_coords = dataset_comune[output_name].bounds
+            make_request(params, region_coords, output_name, crs)
+            out_bbox = {"bbox": region_coords}
+            with open(f"data/sentinel/{output_name}.json", 'w') as fp:
+              json.dump(out_bbox, fp)
 
 if __name__== '__main__':
   status = main()

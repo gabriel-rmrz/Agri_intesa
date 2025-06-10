@@ -90,9 +90,11 @@ def main(argv=None):
         gdf["id"] = ids
         if DEBUG:
           print(gdf.to_json())
+        print('here1')
         out_file_name = f"data/geojsons/{region}_{prov}_{transform_string(c.Comune)}.geojson"
         gdf.to_file(out_file_name, driver='GeoJSON')
         out_file_list.append(out_file_name)
+        print('here2')
   out_file = open(f"data/geojsons/file_list.txt", 'w')
   for p in out_file_list:
     print(p)
