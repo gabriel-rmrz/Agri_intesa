@@ -1,0 +1,42 @@
+# Create as structure containing the parameters necesary to setup the request 
+# and the properties of the rasters.
+#
+params:
+  # Parmeters of the request
+  requests_file:
+    path: "/Users/garamire/Work/RemoteSensing/AgroIntesaProject/Agro_intesa/data/feudi_mod.xlsx"
+    crs: 'EPSG:6706'
+    provinces:
+      CAMPANIA: ['AV','BN']
+    format:
+      id: int
+      Regione: str
+      SiglaProvincia: str
+      CodComune: str
+      Comune: str
+      Foglio: int
+      Particella: int
+      Pagina: int
+      Ha: int
+      Aa: int
+      Ca: int
+
+  request_params:
+    evalscript_path: "configs/evalscript_sentinel_2_cloudMask.txt"
+    resolution: 10 #in meters
+    slots: [['2018-12-01', '2019-02-28']] # This will superseed the automatic splitting. Set this to None for automatic (even) splitting.
+    start_date: '2018-12-01'
+    end_date: '2019-02-28' 
+    n_chunks: 1
+    collection: "SENTINEL2_L2A"
+    collection_alias: "s2l2a"
+    mosaicking_order: "LEAST_CC"
+    other_args: None
+    responses: 
+      default: "TIFF"
+      userdata: "JSON"
+    output_directory: "samples/sentinel2_cloudMask"
+
+
+  authentification:
+    path: 'configs/auth_sentinel.yaml'

@@ -1,0 +1,45 @@
+# Create as structure containing the parameters necesary to setup the request 
+# and the properties of the rasters.
+#
+params:
+  # Parmeters of the request
+  requests_file:
+    path: "/Users/garamire/Work/RemoteSensing/AgroIntesaProject/Agro_intesa/data/feudi_mod.xlsx"
+    crs: 'EPSG:6706'
+    provinces:
+      CAMPANIA: ['AV','BN']
+    format:
+      id: int
+      Regione: str
+      SiglaProvincia: str
+      CodComune: str
+      Comune: str
+      Foglio: int
+      Particella: int
+      Pagina: int
+      Ha: int
+      Aa: int
+      Ca: int
+
+  request_params:
+    evalscript_path: "configs/evalscript_all_bands.txt"
+    resolution: 10 #in meters
+    #slots: [['2018-12-01', '2019-02-28']] # This will superseed the automatic splitting. Set this to None for automatic (even) splitting.
+    slots: [['2018-12-01', '2019-02-28'], ['2019-03-01', '2019-04-30'], ['2019-05-01', '2019-06-30'], ['2019-07-01', '2019-08-31'],
+           ['2019-12-01', '2020-02-28'], ['2020-03-01', '2020-04-30'], ['2020-05-01', '2020-06-30'], ['2020-07-01', '2020-08-31'],
+           ['2020-12-01', '2021-02-28'], ['2021-03-01', '2021-04-30'], ['2021-05-01', '2021-06-30'], ['2021-07-01', '2021-08-31'],
+           ['2021-12-01', '2022-02-28'], ['2022-03-01', '2022-04-30'], ['2022-05-01', '2022-06-30'], ['2022-07-01', '2022-08-31']]
+    start_date: '2018-12-01'
+    end_date: '2019-02-28' 
+    n_chunks: 1
+    collection: "SENTINEL2_L2A"
+    collection_alias: "s2l2a"
+    mosaicking_order: "LEAST_CC"
+    other_args: None
+    responses: 
+      default: "TIFF"
+      userdata: "JSON"
+    output_directory: "samples/sentinel_2"
+
+  authentification:
+    path: 'configs/auth_sentinel.yaml'
