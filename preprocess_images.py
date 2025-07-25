@@ -18,6 +18,24 @@ from utils.sentinel.parse_command_line import parse_command_line
 from utils.generate_cadastral_id import generate_cadastral_id
 #from utils.get_df import get_df
 
+def save_geotiff(im, out_path, ref_raster, masked_transform):
+  # im: 2D numpy array
+  # out_path: path to save the tiff
+  # ref_raster: rasterio dataset from which to copy metadata
+  # masked_transform: transform for this window
+
+  meta = ref_raster.meta.copy()
+  meta.update({
+    "driver": "GTiff",
+    "height": im.shape[0],
+    "width": im.shape[1],
+    "count": 1,
+    "dtype": im.dtype,
+    "transform": masked_transform,
+    "crs": ref_raster.crs
+  })
+  with rasterio.open(out_path, "w", **meta) as dst:
+    dst.write(im, 1)
 
 def plot_1_band(im,dir_path):
   fig = plt.figure(figsize=(6,6))
@@ -28,17 +46,20 @@ def plot_1_band(im,dir_path):
   fig.savefig(dir_path+".png")
   plt.close(fig)
 
-def compute_parameters(masked_image,dir_path, dir_name, i_pol,  prefix=""):
+def compute_parameters(masked_image, dir_path, dir_name, i_pol, ref_raster, masked_transform, prefix=""):
+#def compute_parameters(masked_image,dir_path, dir_name, i_pol,  prefix=""):
   # bands: ["B01","B02","B03","B04","B05","B06","B07","B08","B8A","B09","B11","B12"]
 
   # Getting values of reflectance (Following Katherine's PDF)
   #r_im = masked_image/10000
   r_im = masked_image/10000
+  out_base = f"{dir_path}"
   # Coomputing NDVI = (NIR-RED)/(NIR+RED) # NIR: Band 8
   # RED: Band 4
   ndvi_num = (r_im[7]-r_im[3])
   ndvi_den = r_im[7]+r_im[3]
   ndvi = np.divide(ndvi_num, ndvi_den, out= np.zeros_like(ndvi_num), where=ndvi_den!=0)
+  save_geotiff(ndvi.astype(np.float32), f"{out_base}/ndvi/{prefix}/{dir_name}_{i_pol}.tif", ref_raster, masked_transform)
   plot_1_band(ndvi, f"{dir_path}/ndvi/{prefix}/{dir_name}_{i_pol}")
 
   # Coomputing NDWI = (NIR-SWIR)/(NIR+SWIR)
@@ -48,12 +69,14 @@ def compute_parameters(masked_image,dir_path, dir_name, i_pol,  prefix=""):
   ndwi_num = (r_im[7] - r_im[10]) 
   ndwi_den = (r_im[7] + r_im[10]) 
   ndwi = np.divide(ndwi_num, ndwi_den, out= np.zeros_like(ndwi_num), where=ndwi_den!=0)
+  save_geotiff(ndwi.astype(np.float32), f"{out_base}/ndwi/{prefix}/{dir_name}_{i_pol}.tif", ref_raster, masked_transform)
   plot_1_band(ndwi, f"{dir_path}/ndwi/{prefix}/{dir_name}_{i_pol}")
 
   # Coomputing MSAVI = (2*NIR-1-sqrt((2*NIR+1)^2-8*(NIR - RED)))/2
   # NIR: Band 8
   # RED: Band 4
   msavi = (2*r_im[7] + 1 - np.sqrt(np.power(2*r_im[7]+1,2) - 8 *(r_im[7] - r_im[3])))/2.
+  save_geotiff(msavi.astype(np.float32), f"{out_base}/msavi/{prefix}/{dir_name}_{i_pol}.tif", ref_raster, masked_transform)
   plot_1_band(msavi, f"{dir_path}/msavi/{prefix}/{dir_name}_{i_pol}")
 
   # Coomputing Chlorophyll Index - Green  CI_GREEN = (NIR-GREEN)/(GREEN)
@@ -62,6 +85,7 @@ def compute_parameters(masked_image,dir_path, dir_name, i_pol,  prefix=""):
   ci_green_num = (r_im[7]-r_im[2])
   ci_green_den = r_im[2]
   ci_green = np.divide(ci_green_num, ci_green_den, out= np.zeros_like(ci_green_num), where=ci_green_den!=0)
+  save_geotiff(ci_green.astype(np.float32), f"{out_base}/ci_green/{prefix}/{dir_name}_{i_pol}.tif", ref_raster, masked_transform)
   plot_1_band(ci_green, f"{dir_path}/ci_green/{prefix}/{dir_name}_{i_pol}")
 
   # Coomputing Chlorophyll Index - Red Edge  CI_RED_EDGE = (NIR-RE)/(RE)
@@ -70,6 +94,7 @@ def compute_parameters(masked_image,dir_path, dir_name, i_pol,  prefix=""):
   ci_red_edge_num = (r_im[7]-r_im[4])
   ci_red_edge_den = r_im[4]
   ci_red_edge = np.divide(ci_red_edge_num, ci_red_edge_den, out= np.zeros_like(ci_red_edge_num), where=ci_red_edge_den!=0)
+  save_geotiff(ci_red_edge.astype(np.float32), f"{out_base}/ci_red_edge/{prefix}/{dir_name}_{i_pol}.tif", ref_raster, masked_transform)
   plot_1_band(ci_red_edge, f"{dir_path}/ci_red_edge/{prefix}/{dir_name}_{i_pol}")
 
 def main(argv=None):
@@ -125,8 +150,11 @@ def main(argv=None):
       for i, poly in enumerate(polygons):
         masked_image, masked_transform = mask(raster, [poly.__geo_interface__], crop=True)
         masked_image_inverted, masked_transform = mask(raster, [poly.__geo_interface__], crop=True, invert=True)
-        compute_parameters(masked_image,dir_path, dir_name, i, prefix="in")
-        compute_parameters(masked_image_inverted,dir_path, dir_name, i, prefix="out")
+        #compute_parameters(masked_image,dir_path, dir_name, i, prefix="in")
+        #compute_parameters(masked_image_inverted,dir_path, dir_name, i, prefix="out")
+        compute_parameters(masked_image, dir_path, dir_name, i, raster, masked_transform, prefix="in")
+        compute_parameters(masked_image_inverted, dir_path, dir_name, i, raster, masked_transform, prefix="out")
+
 
 
 
