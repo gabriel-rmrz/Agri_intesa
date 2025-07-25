@@ -1,4 +1,4 @@
-DEBUG=False
+DEBUG=True
 import os
 import glob
 import sys
@@ -78,7 +78,7 @@ def make_bbox_geojson(id_, bbox, out_name):
 
 def get_df(region, prov, cod_comune, comune):
 
-  file_path = f"../ITALIA/{region}/{prov}/{cod_comune}_*/*_ple.gml"
+  file_path = f"data/ITALIA/{region}/{prov}/{cod_comune}_*/*_ple.gml"
   print(file_path)
   matching_files = glob.glob(file_path, recursive=False)
   print(f"matching_files: {matching_files}")
@@ -182,6 +182,10 @@ def make_request(params,region_coords=(14.7434, 40.8638, 15.1123, 41.0615), outp
            ('2019-12-01', '2020-02-28'), ('2020-03-01', '2020-04-30'), ('2020-05-01', '2020-06-30'), ('2020-07-01', '2020-08-31'),
            ('2020-12-01', '2021-02-28'), ('2021-03-01', '2021-04-30'), ('2021-05-01', '2021-06-30'), ('2021-07-01', '2021-08-31'),
            ('2021-12-01', '2022-02-28'), ('2022-03-01', '2022-04-30'), ('2022-05-01', '2022-06-30'), ('2022-07-01', '2022-08-31')]
+  slots: [['2018-12-01', '2019-02-28'], ['2019-03-01', '2019-04-30'], ['2019-05-01', '2019-06-30'], ['2019-07-01', '2019-08-31'],
+           ['2019-12-01', '2020-02-28'], ['2020-03-01', '2020-04-30'], ['2020-05-01', '2020-06-30'], ['2020-07-01', '2020-08-31'],
+           ['2020-12-01', '2021-02-28'], ['2021-03-01', '2021-04-30'], ['2021-05-01', '2021-06-30'], ['2021-07-01', '2021-08-31'],
+           ['2021-12-01', '2022-02-28'], ['2022-03-01', '2022-04-30'], ['2022-05-01', '2022-06-30'], ['2022-07-01', '2022-08-31']]
   '''
   slots = params['request_params']['slots']
   if slots == None:
@@ -247,9 +251,10 @@ def main(argv=None):
   crs = CRS.WGS84
   region_coords = (14.7434, 40.8638, 15.1123, 41.0615) # This our whole region of interest. Included AV and BN sections
   dataset_comune = {}
-  isOnlyParcelsOfInterest = True
+  isOnlyParcelsOfInterest = False
 
-  config_file = 'configs/default_parameters_sentinel.yaml'
+  config_file = 'configs/parameters_sentinel_bySeason.yaml'
+  #config_file = 'configs/default_parameters_sentinel.yaml'
   #config_file = 'configs/parameters_sentinel_1.yaml'
   #config_file = 'configs/parameters_sentinel_2_cloudMask.yaml'
   with open(config_file, 'r') as file:
@@ -303,7 +308,7 @@ def main(argv=None):
           make_request(params, region_coords, output_name, crs)
       else:
         if os.path.isfile(f"data/sentinel/{output_name}.json"):
-          with open(f"data/sentinel/{ouput_name}.json") as jf:
+          with open(f"data/sentinel/{output_name}.json") as jf:
             region_bbox = json.load(jf)
           region_coords = region_bbox['bbox']
           if DEBUG:
@@ -311,8 +316,9 @@ def main(argv=None):
           make_request(params, region_coords, output_name, crs)
         else:
           comune_pd = get_df(region,prov, cod_comune, comune)
-          print(f"data/sentinel/{ouput_name}.json")
+          print(f"data/sentinel/{output_name}.json")
           if DEBUG:
+            print("HERE")
             print(comune_pd.columns.tolist())
             print(comune_pd.head)
           for pol in comune_pd.geometry:
