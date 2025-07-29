@@ -1,5 +1,6 @@
 DEBUG=True
 import os
+import subprocess
 import glob
 import sys
 import re
@@ -76,12 +77,32 @@ def make_bbox_geojson(id_, bbox, out_name):
   print(gdf.to_json())
   gdf.to_file(f'data/sentinel/{out_name}.geojson', driver='GeoJSON')
 
+def split_outside_parenthesis(sentence):
+  # This pattern matches words or parenthesis groups as a whole
+  pattern = r'\([^)]*\)|\S+'
+  matches = re.findall(pattern, sentence)
+  return matches
+
 def get_df(region, prov, cod_comune, comune):
 
+  zipfile_path = f"data/ITALIA/{region}/{prov}/{cod_comune}_*.zip"
+  matching_zipfiles = glob.glob(zipfile_path, recursive=False)
+  if matching_zipfiles:
+    dir_path, _ = matching_zipfiles[0].split(".")
+    if not os.path.isdir(dir_path):
+      bash_command = f"unzip ({dir_path}.zip) -d ({dir_path})"
+      bash_command = split_outside_parenthesis(bash_command)
+      bash_command = [m[1:-1] if m.startswith('(') and m.endswith(')') else m for m in bash_command]
+      process = subprocess.Popen(bash_command, stdout=subprocess.PIPE)
+      output, error = subprocess.comunicate()
+
   file_path = f"data/ITALIA/{region}/{prov}/{cod_comune}_*/*_ple.gml"
-  print(file_path)
+  if DEBUG:
+    print(file_path)
+
   matching_files = glob.glob(file_path, recursive=False)
-  print(f"matching_files: {matching_files}")
+  if DEBUG:
+    print(f"matching_files: {matching_files}")
   fixed_geoms = []
 
   if matching_files:
@@ -97,6 +118,7 @@ def get_df(region, prov, cod_comune, comune):
 
     # Ahora crea el GeoDataFrame
     gdf = gpd.GeoDataFrame(geometry=fixed_geoms, crs=src.crs)
+    print("GDF")
     print(gdf)
   else:
     print('No matching file found')
@@ -263,6 +285,7 @@ def main(argv=None):
 
   data_folder= params['request_params']['output_directory']
   slots = params['request_params']['slots']
+  print(f"data_folder: {data_folder}")
 
   pathlib.Path(data_folder).mkdir(parents=True, exist_ok=True)
   with open(f"{data_folder}/list_retrieved_images.txt", "w") as f:
@@ -316,28 +339,34 @@ def main(argv=None):
           make_request(params, region_coords, output_name, crs)
         else:
           comune_pd = get_df(region,prov, cod_comune, comune)
+          if DEBUG:
+            print(f"comune_pd.size: {comune_pd.size}")
           print(f"data/sentinel/{output_name}.json")
           if DEBUG:
             print("HERE")
             print(comune_pd.columns.tolist())
             print(comune_pd.head)
-          for pol in comune_pd.geometry:
-            if dataset_comune[output_name] is None:
-              dataset_comune[output_name] = pol
-            else:
-              dataset_comune[output_name] = make_valid(dataset_comune[output_name].union(make_valid(pol)))
 
-          if dataset_comune[output_name] == None:
-            print(f'The polygon for {output_name} is empty')
+          if comune_pd.size > 0:
+            for pol in comune_pd.geometry:
+              if dataset_comune[output_name] is None:
+                dataset_comune[output_name] = pol
+              else:
+                dataset_comune[output_name] = make_valid(dataset_comune[output_name].union(make_valid(pol)))
+
+            if dataset_comune[output_name] == None:
+              print(f'The polygon for {output_name} is empty')
+            else:
+              print(f'Making the map request for {output_name}')
+              if DEBUG:
+                print(dataset_comune[output_name].bounds)
+              region_coords = dataset_comune[output_name].bounds
+              make_request(params, region_coords, output_name, crs)
+              out_bbox = {"bbox": region_coords}
+              with open(f"data/sentinel/{output_name}.json", 'w') as fp:
+                json.dump(out_bbox, fp)
           else:
-            print(f'Making the map request for {output_name}')
-            if DEBUG:
-              print(dataset_comune[output_name].bounds)
-            region_coords = dataset_comune[output_name].bounds
-            make_request(params, region_coords, output_name, crs)
-            out_bbox = {"bbox": region_coords}
-            with open(f"data/sentinel/{output_name}.json", 'w') as fp:
-              json.dump(out_bbox, fp)
+            print("Not geometry found")
 
 if __name__== '__main__':
   status = main()
