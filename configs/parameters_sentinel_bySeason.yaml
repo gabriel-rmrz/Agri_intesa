@@ -4,7 +4,7 @@
 params:
   # Parmeters of the request
   requests_file:
-    path: "/Users/garamire/Work/RemoteSensing/AgroIntesaProject/Agro_intesa/data/feudi_mod.xlsx"
+    path: "data/feudi_mod.xlsx"
     crs: 'EPSG:6706'
     provinces:
       CAMPANIA: ['AV','BN']
