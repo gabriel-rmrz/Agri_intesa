@@ -10,7 +10,7 @@ def split_outside_parentheses(sentence):
   return matches
 
 def unpack_zip_files(PATH):
-  # TODO: This part has to be adapte to unpack recursively.
+  # TODO: This part has to be adapte to unpack recursively.  DONE!
   paths = [os.path.join(dp, f) for dp, dn, filenames in os.walk(PATH) for f in filenames if os.path.splitext(f)[1] == '.zip']
   
   keep_unpacking = False 
